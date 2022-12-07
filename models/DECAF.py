@@ -96,6 +96,7 @@ class Generator_causal(nn.Module):
         for i, layer in enumerate(self.fc_f):
             torch.nn.init.xavier_normal_(layer.weight)
             layer.weight.data *= f_scale
+        print('😡 M after fci stuff', self.M)
 
     def sequential(
         self,
@@ -105,7 +106,7 @@ class Generator_causal(nn.Module):
         biased_edges: dict = {},
     ) -> torch.Tensor:
         out = x.clone().detach()
-
+        print('🔴 GEN ORDER', gen_order)
         if gen_order is None:
             gen_order = list(range(self.x_dim))
 
@@ -189,6 +190,7 @@ class DECAF(pl.LightningModule):
             use_mask=use_mask,
             dag_seed=dag_seed,
         )
+        print('😶‍🌫️ self.gen.M right after init', self.generator.M)
         self.discriminator = Discriminator(x_dim=self.x_dim, h_dim=h_dim)
 
         self.dag_seed = dag_seed
@@ -265,6 +267,7 @@ class DECAF(pl.LightningModule):
 
     def get_W(self) -> torch.Tensor:
         if self.hparams.use_mask:
+            print('🥶 generator M', self.generator.M)
             return self.generator.M
         else:
             W_0 = []
@@ -304,6 +307,7 @@ class DECAF(pl.LightningModule):
     def gen_synthetic(
         self, x: torch.Tensor, gen_order: Optional[list] = None, biased_edges: dict = {}
     ) -> torch.Tensor:
+        print('🟠 M AT GEN SYNTHETIC,', self.generator.M)
         return self.generator.sequential(
             x,
             self.sample_z(x.shape[0]).type_as(x),
@@ -323,6 +327,7 @@ class DECAF(pl.LightningModule):
         return np.round(bi_dag, 3)
 
     def get_gen_order(self) -> list:
+        print('🟡 DENSE DAGA', self.generator.M)
         dense_dag = np.array(self.get_dag())
         dense_dag[dense_dag > 0.5] = 1
         dense_dag[dense_dag <= 0.5] = 0
@@ -334,6 +339,7 @@ class DECAF(pl.LightningModule):
         self, batch: torch.Tensor, batch_idx: int, optimizer_idx: int
     ) -> OrderedDict:
         # sample noise
+        print('🥹 m in training',self.generator.M)
         z = self.sample_z(batch.shape[0])
         z = z.type_as(batch)
 

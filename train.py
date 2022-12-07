@@ -22,7 +22,7 @@ models_dir = 'cache'
 def train_vanilla_gan(train_dataset, noise_dim=32, dim=128, batch_size=128,
                       log_step=100, epochs=50, learning_rate=5e-4, beta_1=0.5,
                       beta_2=0.9, model_name='vanilla_gan'):
-
+    # tf.config.run_functions_eagerly(True)
     model = VanilllaGAN
     model_filename = os.path.join(models_dir, f'{model_name}.pkl')
 
@@ -151,7 +151,7 @@ def train_decaf(train_dataset, dag_seed, biased_edges={}, h_dim=200, lr=0.5e-3,
                 alpha=2, rho=2, weight_decay=1e-2, grad_dag_loss=False, l1_g=0,
                 l1_W=1e-4, p_gen=-1, use_mask=True, epochs=50, model_name='decaf'):
     model_filename = os.path.join(models_dir, f'{model_name}.pkl')
-
+    
     dm = DataModule(train_dataset.values)
 
     model = DECAF(
@@ -172,15 +172,16 @@ def train_decaf(train_dataset, dag_seed, biased_edges={}, h_dim=200, lr=0.5e-3,
         p_gen=p_gen,
         use_mask=use_mask,
     )
-
-    if os.path.exists(model_filename):
-        model = torch.load(model_filename)
-    else:
-        trainer = pl.Trainer(max_epochs=epochs, logger=False)
-        trainer.fit(model, dm)
-        torch.save(model, model_filename)
+    print('MODEL BEFPRE', model.generator.M)
+    # if os.path.exists(model_filename):
+    #     model = torch.load(model_filename)
+    # else:
+    trainer = pl.Trainer(max_epochs=epochs, logger=False)
+    trainer.fit(model, dm)
+    torch.save(model, model_filename)
 
     # Generate synthetic data
+    print('MODEL', model.generator.M)
     synth_dataset = (
         model.gen_synthetic(
             dm.dataset.x,
