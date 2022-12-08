@@ -324,14 +324,48 @@ class DECAF(pl.LightningModule):
                 bi_dag[i][j] = dag[i][j] + dag[j][i]
         return np.round(bi_dag, 3)
 
+    def findParents(self, dag_seed, child):
+        #return parent nodes
+        parents=[]
+        for edge in dag_seed:
+            if edge[1]==child:
+                parents.append(edge[0])
+        return parents
+
+    def collapse_graph(self, dag_seed, cycles):
+        #return new dag seed without cycles
+        while len(cycles)>0:
+            cycle=cycles[0]
+            for i in range(len(cycle)-1):
+                dag_seed.remove([cycle[i], cycle[i+1]])
+            dag_seed.remove([cycle[-1], cycle[0]])
+            randomOrderedNodes=np.random.permutation(cycle) 
+            print('randomOrderedNodes:', randomOrderedNodes)
+            print('dag_seed without cycle nodes:', dag_seed)
+            parentsFullyConnected = []
+            for i in range(len(randomOrderedNodes)-1):
+                for j in range(i+1, len(randomOrderedNodes)):  
+                    dag_seed.append([randomOrderedNodes[i], randomOrderedNodes[j]])
+                parentsFullyConnected.extend(self.findParents(dag_seed, randomOrderedNodes[i]))
+            print('parents fully connected:', parentsFullyConnected)
+            for child in randomOrderedNodes:
+                for parent in parentsFullyConnected:
+                    dag_seed.append([parent, child])
+            cycles=cycles[1:]
+        print('dag_seed returned:', dag_seed)
+        return dag_seed
+
     def detangle_graph(self):
+        #create new generator graph that does not have cycles
         dense_dag = np.array(self.get_dag())
         dense_dag[dense_dag > 0.5] = 1
         dense_dag[dense_dag <= 0.5] = 0
         G = nx.from_numpy_matrix(dense_dag, create_using=nx.DiGraph)
         cycles = list(nx.simple_cycles(G))
+        print('😍', cycles)
         #collapse cycles to create new dag
-        self.dag_seed = [[8, 6], [8, 14], [8, 12], [8, 3], [8, 5], [0, 6], [0, 12], [0, 14], [0, 1], [0, 5], [0, 3], [0, 7], [9, 6], [9, 5], [9, 14], [9, 1], [9, 3], [9, 7], [13, 5], [13, 12], [13, 3], [13, 1], [13, 14], [13, 7], [5, 6], [5, 12], [5, 14], [5, 1], [5, 7], [5, 3], [3, 6], [3, 12], [3, 14], [3, 1], [3, 7], [6, 14], [12, 14], [1, 14], [7, 14]]
+        self.dag_seed= self.collapse_graph(self.dag_seed, cycles)
+        # self.dag_seed = [[8, 6], [8, 14], [8, 12], [8, 3], [8, 5], [0, 6], [0, 12], [0, 14], [0, 1], [0, 5], [0, 3], [0, 7], [9, 6], [9, 5], [9, 14], [9, 1], [9, 3], [9, 7], [13, 5], [13, 12], [13, 3], [13, 1], [13, 14], [13, 7], [5, 6], [5, 12], [5, 14], [5, 1], [5, 7], [5, 3], [3, 6], [3, 12], [3, 14], [3, 1], [3, 7], [6, 14], [12, 14], [1, 14], [7, 14]]
         ##
         self.generator = Generator_causal(
             z_dim=self.z_dim,
