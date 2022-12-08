@@ -96,7 +96,6 @@ class Generator_causal(nn.Module):
         for i, layer in enumerate(self.fc_f):
             torch.nn.init.xavier_normal_(layer.weight)
             layer.weight.data *= f_scale
-        print('😡 M after fci stuff', self.M)
 
     def sequential(
         self,
@@ -190,7 +189,7 @@ class DECAF(pl.LightningModule):
             use_mask=use_mask,
             dag_seed=dag_seed,
         )
-        print('😶‍🌫️ self.gen.M right after init', self.generator.M)
+
         self.discriminator = Discriminator(x_dim=self.x_dim, h_dim=h_dim)
 
         self.dag_seed = dag_seed
@@ -267,7 +266,6 @@ class DECAF(pl.LightningModule):
 
     def get_W(self) -> torch.Tensor:
         if self.hparams.use_mask:
-            print('🥶 generator M', self.generator.M)
             return self.generator.M
         else:
             W_0 = []
@@ -326,8 +324,24 @@ class DECAF(pl.LightningModule):
                 bi_dag[i][j] = dag[i][j] + dag[j][i]
         return np.round(bi_dag, 3)
 
+    def detangle_graph(self):
+        dense_dag = np.array(self.get_dag())
+        dense_dag[dense_dag > 0.5] = 1
+        dense_dag[dense_dag <= 0.5] = 0
+        G = nx.from_numpy_matrix(dense_dag, create_using=nx.DiGraph)
+        cycles = list(nx.simple_cycles(G))
+        #collapse cycles to create new dag
+        self.dag_seed = [[8, 6], [8, 14], [8, 12], [8, 3], [8, 5], [0, 6], [0, 12], [0, 14], [0, 1], [0, 5], [0, 3], [0, 7], [9, 6], [9, 5], [9, 14], [9, 1], [9, 3], [9, 7], [13, 5], [13, 12], [13, 3], [13, 1], [13, 14], [13, 7], [5, 6], [5, 12], [5, 14], [5, 1], [5, 7], [5, 3], [3, 6], [3, 12], [3, 14], [3, 1], [3, 7], [6, 14], [12, 14], [1, 14], [7, 14]]
+        ##
+        self.generator = Generator_causal(
+            z_dim=self.z_dim,
+            x_dim=self.x_dim,
+            h_dim=200,
+            use_mask=True,
+            dag_seed=self.dag_seed,
+        )
+        
     def get_gen_order(self) -> list:
-        print('🟡 DENSE DAGA', self.generator.M)
         dense_dag = np.array(self.get_dag())
         dense_dag[dense_dag > 0.5] = 1
         dense_dag[dense_dag <= 0.5] = 0
