@@ -177,7 +177,7 @@ def train_decaf(train_dataset, dag_seed, biased_edges={}, h_dim=200, lr=0.5e-3,
     #     model = torch.load(model_filename)
     # else:
     trainer = pl.Trainer(max_epochs=epochs, logger=False)
-    trainer.fit(model, dm)
+    trainer.fit(model, dm) #DOESNT WORK WITH CYCLIC
     torch.save(model, model_filename)
 
     # Generate synthetic data
