@@ -46,13 +46,7 @@ def train_decaf(train_dataset, dag_seed, biased_edges={}, h_dim=200, lr=0.5e-3,
         p_gen=p_gen,
         use_mask=use_mask,
     )
-    # print('PRE DETANGLE', model.generator.M)
-    # model.detangle_graph()
-    # print('POST DETANGLE', model.generator.M)
-    # trainer = pl.Trainer(max_epochs=epochs, logger=False)
-    # try:
-    #     trainer = pl.Trainer(max_epochs=epochs, logger=False)
-    # except nx.NetworkXUnfeasible:
+
     model.detangle_graph()
     trainer = pl.Trainer(max_epochs=epochs, logger=False)
     trainer.fit(model, dm) #DOESNT WORK WITH CYCLIC

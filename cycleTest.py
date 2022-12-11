@@ -17,7 +17,8 @@ dataset_train, dataset_test = train_test_split(dataset, test_size=2000, stratify
 
 # Define DAG for Adult dataset
 dag = [
-    ['income', 'relationship'],
+    ['income', 'education'],
+    # ['income', 'relationship'], 
     
     # Edges from race
     ['race', 'occupation'],
@@ -174,15 +175,16 @@ print('DAG SEED A:', dag_seed)
 
 synth_data = train_decaf(dataset_train, dag_seed, biased_edges=bias_dict_ftu)
 print('FTU')
-results['FTU']=eval_model(synth_data, dataset_test, biased_edges=bias_dict_ftu)
+results['FTU']=eval_model(synth_data, dataset_test)
 print('DAG SEED B:', dag_seed)
 
 synth_data = train_decaf(dataset_train, dag_seed, biased_edges=bias_dict_cf)
 print('CF')
-results['CF']=eval_model(synth_data, dataset_test, biased_edges=bias_dict_cf)
+results['CF']=eval_model(synth_data, dataset_test)
 print('DAG SEED C:', dag_seed)
 
 synth_data = train_decaf(dataset_train, dag_seed, biased_edges=bias_dict_dp)
 print('DP')
-results['DP']=eval_model(synth_data, dataset_test, biased_edges=bias_dict_dp)
+results['DP']=eval_model(synth_data, dataset_test)
 print('DAG SEED D:', dag_seed)
+print(results)

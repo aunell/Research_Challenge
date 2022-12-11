@@ -328,26 +328,54 @@ class DECAF(pl.LightningModule):
         for edge in dag_seed:
             if edge[1]==child:
                 parents.append(edge[0])
+        print('the child', child, 'has parents', parents)
         return parents
+
+    def findCycleGroups(self, cycles):
+        #optimize this, return list of cycle groups
+        cycleGroupList = []
+        added=False
+        for cycle in cycles:
+            for node in cycle:
+                for currentCycle in cycleGroupList:
+                    if node in currentCycle:
+                        currentCycle.update(set(cycle))
+                        added=True
+                        continue
+            if not added:
+                cycleGroupList.append(set(cycle))
+            added=False
+        return cycleGroupList
 
     def collapse_graph(self, dag_seed, cycles):
         #return new dag seed without cycles
-        while len(cycles)>0:
-            cycle=cycles[0]
-            for i in range(len(cycle)-1):
-                dag_seed.remove([cycle[i], cycle[i+1]])
-            dag_seed.remove([cycle[-1], cycle[0]])
+        cycleGroupList=self.findCycleGroups(cycles)
+        while len(cycleGroupList)>0:
+            cycle=cycleGroupList[0]
+            cycle=list(cycle)
+            for i in range(len(cycle)):
+                for j in range(len(cycle)):
+                    try:
+                        dag_seed.remove([cycle[i], cycle[j]])
+                    except ValueError:
+                        continue
             randomOrderedNodes=np.random.permutation(cycle) 
-            parentsFullyConnected = []
+            parentsFullyConnectedDict = {}
+            parentsFullyConnectedAll=set()
             for i in range(len(randomOrderedNodes)-1):
                 for j in range(i+1, len(randomOrderedNodes)):  
                     dag_seed.append([randomOrderedNodes[i], randomOrderedNodes[j]])
-                parentsFullyConnected.extend(self.findParents(dag_seed, randomOrderedNodes[i]))
+                parents=self.findParents(dag_seed, randomOrderedNodes[i])
+                parentsFullyConnectedDict[randomOrderedNodes[i]]=parents
+                parentsFullyConnectedAll.update(set(parents))
+            parents=self.findParents(dag_seed, randomOrderedNodes[-1])
+            parentsFullyConnectedDict[randomOrderedNodes[-1]]=parents
+            parentsFullyConnectedAll.update(set(parents)) #this can be sped
             for child in randomOrderedNodes:
-                for parent in parentsFullyConnected:
-                    if [parent, child] not in dag_seed:
+                for parent in parentsFullyConnectedAll:
+                    if [parent, child] not in dag_seed and parent not in randomOrderedNodes:
                         dag_seed.append([parent, child])
-            cycles=cycles[1:]
+            cycleGroupList=cycleGroupList[1:]
         print('returned dag seed', dag_seed)
         return dag_seed
 
