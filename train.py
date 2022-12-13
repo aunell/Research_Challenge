@@ -15,7 +15,6 @@ import networkx as nx
 
 from data import DataModule
 from models.DECAF import DECAF
-from models.FairGAN import Medgan
 
 models_dir = 'cache'
 def all_parents(dag_seed, child):
