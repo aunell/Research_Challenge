@@ -323,70 +323,85 @@ class DECAF(pl.LightningModule):
         return np.round(bi_dag, 3)
 
     def findParents(self, dag_seed, child):
-        #return parent nodes
-        parents=[]
+        '''
+        return set of parent nodes of given child
+        '''
+        parents=set()
         for edge in dag_seed:
             if edge[1]==child:
-                parents.append(edge[0])
+                parents.add(edge[0])
         print('the child', child, 'has parents', parents)
         return parents
 
+    def hashUpdate(self, cycleGroupHash, node, cycle):
+        '''
+        function used in findCycleGroups, updates the hash table for efficient cycle group creation
+        '''
+        cycleGroupHash[node].update(cycle)
+        for member in cycleGroupHash[node]:
+            cycleGroupHash[member]=cycleGroupHash[node]
+        return cycleGroupHash
+
     def findCycleGroups(self, cycles):
-        #optimize this, return list of cycle groups
-        cycleGroupList = []
-        added=False
+        '''
+        return list of cycle groups from list of cycles
+        '''
+        cycleGroupHash = {}
         for cycle in cycles:
             for node in cycle:
-                for currentCycle in cycleGroupList:
-                    if node in currentCycle:
-                        currentCycle.update(set(cycle))
-                        added=True
-                        continue
-            if not added:
-                cycleGroupList.append(set(cycle))
-            added=False
-        return cycleGroupList
+                if node in cycleGroupHash:
+                    cycleGroupHash = self.hashUpdate(cycleGroupHash, node, cycle)
+                    break
+                else:
+                    cycleGroupHash[node]=set(cycle)
+        return list(set(frozenset(s) for s in cycleGroupHash.values()))
+
+    
 
     def collapse_graph(self, dag_seed, cycles):
-        #return new dag seed without cycles
+        '''
+        return new dag seed without cycles
+        '''
         cycleGroupList=self.findCycleGroups(cycles)
-        while len(cycleGroupList)>0:
-            cycle=cycleGroupList[0]
+        for cycle in cycleGroupList:
             cycle=list(cycle)
             for i in range(len(cycle)):
                 for j in range(len(cycle)):
                     try:
-                        dag_seed.remove([cycle[i], cycle[j]])
+                        dag_seed.remove([cycle[i], cycle[j]]) #remove all edges between members of cycle group
                     except ValueError:
                         continue
             randomOrderedNodes=np.random.permutation(cycle) 
-            parentsFullyConnectedDict = {}
-            parentsFullyConnectedAll=set()
+            parentNodeMap = {}
+            parentsAll=set()
             for i in range(len(randomOrderedNodes)-1):
                 for j in range(i+1, len(randomOrderedNodes)):  
                     dag_seed.append([randomOrderedNodes[i], randomOrderedNodes[j]])
                 parents=self.findParents(dag_seed, randomOrderedNodes[i])
-                parentsFullyConnectedDict[randomOrderedNodes[i]]=parents
-                parentsFullyConnectedAll.update(set(parents))
+                parentNodeMap[randomOrderedNodes[i]]=parents
+                parentsAll.update(parents)
+
+            #add parent info for last numbered node
             parents=self.findParents(dag_seed, randomOrderedNodes[-1])
-            parentsFullyConnectedDict[randomOrderedNodes[-1]]=parents
-            parentsFullyConnectedAll.update(set(parents)) #this can be sped
+            parentNodeMap[randomOrderedNodes[-1]]=parents
+            parentsAll.update(parents)
+
             for child in randomOrderedNodes:
-                for parent in parentsFullyConnectedAll:
+                for parent in parentsAll:
                     if [parent, child] not in dag_seed and parent not in randomOrderedNodes:
                         dag_seed.append([parent, child])
-            cycleGroupList=cycleGroupList[1:]
-        print('returned dag seed', dag_seed)
         return dag_seed
 
     def detangle_graph(self):
-        #create new generator graph that does not have cycles
+        '''
+        create new generator graph that does not have cycles
+        '''
         dense_dag = np.array(self.get_dag())
         dense_dag[dense_dag > 0.5] = 1
         dense_dag[dense_dag <= 0.5] = 0
         G = nx.from_numpy_matrix(dense_dag, create_using=nx.DiGraph)
         cycles = list(nx.simple_cycles(G))
-        self.dag_seed= self.collapse_graph(self.dag_seed, cycles)
+        self.dag_seed = self.collapse_graph(self.dag_seed, cycles)
         self.generator = Generator_causal(
             z_dim=self.z_dim,
             x_dim=self.x_dim,
@@ -394,6 +409,7 @@ class DECAF(pl.LightningModule):
             use_mask=True,
             dag_seed=self.dag_seed,
         )
+        return self.dag_seed
         
     def get_gen_order(self) -> list:
         dense_dag = np.array(self.get_dag())
